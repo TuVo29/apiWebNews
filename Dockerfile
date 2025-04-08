@@ -1,25 +1,30 @@
-FROM php:8.2-apache
+FROM php:8.2-cli
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libzip-dev unzip git curl libpng-dev libonig-dev zip \
-    && docker-php-ext-install pdo pdo_mysql zip gd
+    git curl libpng-dev libonig-dev libxml2-dev zip unzip \
+    libzip-dev zip libcurl4-openssl-dev libssl-dev \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Cài Composer
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy project
-COPY . /var/www/html/
-WORKDIR /var/www/html/
+# Set working directory
+WORKDIR /var/www
 
-# Cài đặt Laravel
+# Copy project files
+COPY . .
+
+# Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Phân quyền
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage
+# Expose port (Render sets this with $PORT env var)
+ENV PORT=10000
+EXPOSE ${PORT}
 
-# Bật mod_rewrite cho Laravel
-RUN a2enmod rewrite
+# Laravel setup
+RUN php artisan config:clear
+RUN php artisan route:clear
 
-# Laravel sẽ chạy trên cổng 10000
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+# Start Laravel server
+CMD php artisan serve --host=0.0.0.0 --port=${PORT}
